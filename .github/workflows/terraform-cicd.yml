@@ -1,0 +1,84 @@
+name: Terraform CICD
+
+on:
+  pull_request:
+    branches: [ staging, main ]
+  push:
+    branches: [ staging, main ]
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  staging:
+    name: Staging
+    if: github.ref == 'refs/heads/staging' || github.base_ref == 'staging'
+    runs-on: ubuntu-latest          # FIX 1: '=' → ':'
+    defaults:
+      run:
+        working-directory: ./environments   # FIX 2: missing space after ':'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}   # FIX 3: missing ':' and '$'
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init      # FIX 4: 'Terrform' → 'Terraform' (typo)
+        run: terraform init
+
+      - name: Terraform Plan      # FIX 4: 'Terrform' → 'Terraform' (typo)
+        id: plan                  # FIX 5: 'id : plan' → 'id: plan' (extra space)
+        run: terraform plan -var="environment=staging" -no-color
+        continue-on-error: true   # FIX 6: 'continye-on-error' → 'continue-on-error' (typo)
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        run: terraform apply -var="environment=staging" -no-color -auto-approve
+
+  production:
+    name: Production              # FIX 7: 'Staging' → 'Production' (copy-paste error)
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    runs-on: ubuntu-latest        # FIX 1: '=' → ':'
+    defaults:
+      run:
+        working-directory: ./environments   # FIX 2: missing space after ':'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}   # FIX 3: missing ':' and '$'
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init      # FIX 4: 'Terrform' → 'Terraform' (typo)
+        run: terraform init
+
+      - name: Terraform Plan      # FIX 4: 'Terrform' → 'Terraform' (typo)
+        id: plan                  # FIX 5: 'id : plan' → 'id: plan' (extra space)
+        run: terraform plan -var="environment=production" -no-color
+        continue-on-error: true   # FIX 6: 'continye-on-error' → 'continue-on-error' (typo)
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform apply -var="environment=production" -no-color -auto-approve
